@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ライドシェア売上管理</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --uber:#1a1a2e; --go:#16a34a; --go-l:#dcfce7; --didi:#ea580c; --didi-l:#ffedd5;
+  --acc:#2563eb; --acc-l:#dbeafe; --pink:#db2777; --yel:#b45309; --yel-l:#fef9c3;
+  --bg:#f1f5f9; --card:#fff; --border:#e2e8f0; --text:#0f172a; --muted:#64748b;
+  --danger:#dc2626; --ok:#16a34a;
+}
+body { font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Yu Gothic',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; padding-bottom:80px; }
+
+.header { background:linear-gradient(135deg,#1a1a2e,#16213e); color:#fff; padding:13px 16px 11px; position:sticky; top:0; z-index:100; box-shadow:0 2px 12px rgba(0,0,0,.25); }
+.hdr-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+.hdr-top h1 { font-size:17px; font-weight:700; } .hdr-top h1 span { color:#60a5fa; }
+.badge { display:inline-block; padding:3px 9px; border-radius:100px; font-size:11px; font-weight:700; }
+.badge-ok { background:#dcfce7; color:#16a34a; } .badge-warn { background:#fef3c7; color:#b45309; }
+.pnav { display:flex; align-items:center; gap:6px; }
+.pnav button { background:rgba(255,255,255,.15); border:none; color:#fff; width:28px; height:28px; border-radius:8px; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; transition:.2s; }
+.pnav button:hover { background:rgba(255,255,255,.28); }
+.plbl { font-size:13px; font-weight:700; color:#e2e8f0; }
+
+.nav { display:flex; background:var(--card); border-bottom:2px solid var(--border); position:sticky; top:70px; z-index:90; overflow-x:auto; }
+.tab { flex:1; min-width:68px; padding:11px 5px; text-align:center; font-size:11px; font-weight:600; color:var(--muted); cursor:pointer; border-bottom:3px solid transparent; margin-bottom:-2px; transition:.2s; white-space:nowrap; }
+.tab.active { color:var(--acc); border-bottom-color:var(--acc); }
+
+.content { padding:14px; max-width:700px; margin:0 auto; }
+.view { display:none; } .view.active { display:block; }
+.card { background:var(--card); border-radius:16px; padding:18px; margin-bottom:14px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+.ctitle { font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.7px; margin-bottom:14px; }
+
+/* PLATFORM */
+.plats { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:14px; }
+.plat { border-radius:12px; padding:13px 10px; text-align:center; }
+.plat.u { background:var(--uber); color:#fff; } .plat.g { background:var(--go-l); } .plat.d { background:var(--didi-l); }
+.pname { font-size:11px; font-weight:700; letter-spacing:.5px; margin-bottom:5px; text-transform:uppercase; }
+.plat.g .pname { color:var(--go); } .plat.d .pname { color:var(--didi); }
+.pamt { font-size:17px; font-weight:800; }
+.plat.g .pamt { color:var(--go); } .plat.d .pamt { color:var(--didi); }
+
+/* METRICS */
+.g2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
+.bm { background:var(--card); border-radius:14px; padding:16px; text-align:center; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+.bm-lbl { font-size:11px; font-weight:600; color:var(--muted); margin-bottom:6px; letter-spacing:.4px; }
+.bm-val { font-size:26px; font-weight:900; line-height:1; }
+.bm-val .u { font-size:13px; font-weight:400; color:var(--muted); }
+.bm-sub { font-size:11px; color:var(--muted); margin-top:4px; }
+.bm.profit .bm-val { color:var(--pink); } .bm.hourly .bm-val { color:var(--yel); } .bm.acc .bm-val { color:var(--acc); }
+
+/* DAYS ROW */
+.drow { display:flex; gap:10px; margin-bottom:14px; }
+.dchip { background:var(--card); border-radius:12px; padding:13px; text-align:center; flex:1; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+.dnum { font-size:26px; font-weight:900; color:var(--acc); line-height:1; }
+.dlbl { font-size:10px; font-weight:600; color:var(--muted); margin-top:3px; }
+.nchip { background:var(--acc-l); border-radius:12px; padding:13px; flex:2; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+.nlbl { font-size:11px; font-weight:600; color:var(--acc); margin-bottom:3px; }
+.nval { font-size:19px; font-weight:800; color:var(--acc); }
+.nchip.ok { background:#dcfce7; } .nchip.ok .nlbl,.nchip.ok .nval { color:var(--ok); }
+
+/* PROGRESS */
+.mlcard { background:var(--card); border-radius:16px; padding:16px 18px; margin-bottom:14px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+.mltop { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; }
+.mltitle { font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+.mlsub { font-size:11px; color:var(--muted); margin-top:2px; }
+.mlpct { font-size:24px; font-weight:900; color:var(--acc); }
+.pbar { background:#e2e8f0; border-radius:999px; height:10px; overflow:hidden; margin-bottom:8px; }
+.pfill { height:100%; border-radius:999px; transition:width .6s; background:linear-gradient(90deg,#2563eb,#7c3aed); }
+.pfill.done { background:linear-gradient(90deg,#16a34a,#15803d); }
+.mldet { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); }
+.mlrem { font-weight:700; color:var(--danger); } .mlrem.done { color:var(--ok); }
+
+/* FORM */
+.fr { display:grid; gap:12px; margin-bottom:12px; }
+.fr.t2 { grid-template-columns:1fr 1fr; } .fr.t3 { grid-template-columns:1fr 1fr 1fr; }
+.fg { display:flex; flex-direction:column; gap:5px; }
+label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); }
+label.lu { color:var(--uber); } label.lg { color:var(--go); } label.ld { color:var(--didi); }
+input[type="date"],input[type="number"] { padding:11px 13px; border:2px solid var(--border); border-radius:12px; font-size:16px; font-family:inherit; color:var(--text); background:#fff; transition:.2s; width:100%; -webkit-appearance:none; }
+input:focus { outline:none; border-color:var(--acc); }
+input.fu:focus { border-color:var(--uber); } input.fg2:focus { border-color:var(--go); } input.fd:focus { border-color:var(--didi); }
+.cprev { background:#f8fafc; border:2px solid var(--border); border-radius:12px; padding:13px 16px; margin-bottom:13px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; text-align:center; }
+.cpl { font-size:10px; font-weight:700; color:var(--muted); margin-bottom:4px; text-transform:uppercase; }
+.cpv { font-size:17px; font-weight:800; }
+.cpv.cs { color:var(--acc); } .cpv.cp { color:var(--pink); } .cpv.ch { color:var(--yel); }
+.btnp { display:block; width:100%; padding:14px; border:none; border-radius:12px; font-size:15px; font-weight:700; cursor:pointer; background:linear-gradient(135deg,var(--acc),#7c3aed); color:#fff; font-family:inherit; box-shadow:0 4px 12px rgba(37,99,235,.3); transition:.2s; }
+.btnp:hover { opacity:.92; transform:translateY(-1px); }
+.btnd { display:block; width:100%; padding:13px; border:2px solid #fecaca; border-radius:12px; font-size:14px; font-weight:600; cursor:pointer; background:#fef2f2; color:var(--danger); font-family:inherit; }
+
+/* LOG TABLE */
+.lwrap { overflow-x:auto; margin:-4px; }
+table.lt { width:100%; border-collapse:collapse; font-size:12.5px; min-width:500px; }
+table.lt th { text-align:right; padding:8px 7px; font-size:10px; font-weight:700; color:var(--muted); letter-spacing:.5px; border-bottom:2px solid var(--border); white-space:nowrap; }
+table.lt th:first-child,table.lt td:first-child { text-align:left; }
+table.lt td { text-align:right; padding:9px 7px; border-bottom:1px solid #f1f5f9; white-space:nowrap; }
+table.lt tr:last-child td { border-bottom:none; }
+table.lt tr:hover td { background:#f8fafc; }
+table.lt .tr-tot td { font-weight:800; background:#f8fafc; border-top:2px solid var(--border); }
+.dc { font-weight:700; font-size:12px; }
+.dow { font-size:10px; color:var(--muted); }
+.uv { color:var(--uber); font-weight:600; } .gv { color:var(--go); font-weight:600; } .dv { color:var(--didi); font-weight:600; }
+.sv { color:var(--acc); font-weight:700; } .pv { color:var(--pink); font-weight:700; } .hv { color:var(--yel); font-weight:700; }
+.delbtn { background:none; border:none; cursor:pointer; color:#cbd5e1; font-size:13px; padding:3px 5px; border-radius:6px; transition:.2s; }
+.delbtn:hover { color:var(--danger); background:#fef2f2; }
+.nodata { text-align:center; padding:36px; color:var(--muted); }
+.nodata-ico { font-size:38px; margin-bottom:10px; }
+.impbadge { display:inline-block; background:#dbeafe; color:#1d4ed8; border-radius:6px; padding:2px 7px; font-size:10px; font-weight:700; margin-left:4px; }
+
+/* HISTORY */
+.ysec { margin-bottom:18px; }
+.yhdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.ytitle { font-size:20px; font-weight:900; }
+.ytag { font-size:11px; font-weight:700; color:var(--muted); background:#f1f5f9; border-radius:100px; padding:3px 10px; }
+.ysum { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:12px; }
+.yscard { background:var(--card); border-radius:12px; padding:11px 9px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,.05); }
+.ysl { font-size:10px; font-weight:600; color:var(--muted); margin-bottom:3px; }
+.ysv { font-size:14px; font-weight:800; }
+.ysv.a { color:var(--acc); } .ysv.p { color:var(--pink); } .ysv.h { color:var(--yel); }
+.hwrap { overflow-x:auto; }
+table.ht { width:100%; border-collapse:collapse; font-size:12px; min-width:560px; }
+table.ht th { text-align:right; padding:7px 7px; font-size:10px; font-weight:700; color:var(--muted); border-bottom:2px solid var(--border); white-space:nowrap; text-transform:uppercase; letter-spacing:.3px; }
+table.ht th:first-child { text-align:left; }
+table.ht td { text-align:right; padding:9px 7px; border-bottom:1px solid #f8fafc; white-space:nowrap; }
+table.ht td:first-child { text-align:left; font-weight:600; font-size:12px; }
+table.ht tr:hover td { background:#f8fafc; }
+table.ht .tr-tot td { font-weight:800; background:#f1f5f9; border-top:2px solid var(--border); }
+table.ht tr.cur td { color:#6366f1; }
+.ach { color:var(--ok); font-weight:700; } .noch { color:var(--danger); font-weight:700; }
+
+/* SETTINGS */
+.sg { margin-bottom:18px; }
+.sgt { font-size:11px; font-weight:700; color:var(--muted); letter-spacing:.7px; text-transform:uppercase; margin-bottom:10px; padding-bottom:7px; border-bottom:1px solid var(--border); }
+.sr { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:9px 0; border-bottom:1px solid #f8fafc; }
+.si { flex:1; } .sl { font-size:14px; font-weight:600; margin-bottom:1px; } .sd { font-size:11px; color:var(--muted); }
+.siw { display:flex; align-items:center; gap:5px; }
+.sinp { width:100px; padding:8px 10px; border:2px solid var(--border); border-radius:10px; font-size:15px; font-weight:700; text-align:right; font-family:inherit; }
+.sinp:focus { outline:none; border-color:var(--acc); }
+.su { font-size:12px; color:var(--muted); font-weight:600; }
+.btnset { display:block; width:100%; padding:13px; background:linear-gradient(135deg,var(--acc),#7c3aed); color:#fff; border:none; border-radius:12px; font-size:15px; font-weight:700; cursor:pointer; font-family:inherit; margin-top:8px; }
+
+.toast { position:fixed; bottom:90px; left:50%; transform:translateX(-50%) translateY(20px); background:#1e293b; color:#fff; padding:11px 22px; border-radius:100px; font-size:14px; font-weight:600; opacity:0; transition:.3s; z-index:999; pointer-events:none; white-space:nowrap; }
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+@media(max-width:400px) { .g2{grid-template-columns:1fr;} .ysum{grid-template-columns:1fr 1fr;} }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="hdr-top">
+    <h1>🚗 ライドシェア<span>売上管理</span></h1>
+    <div id="hBadge" class="badge badge-ok">今期</div>
+  </div>
+  <div class="pnav">
+    <button onclick="chgPeriod(-1)">‹</button>
+    <span class="plbl" id="pLabel">—</span>
+    <button onclick="chgPeriod(1)">›</button>
+  </div>
+</div>
+
+<div class="nav">
+  <div class="tab active" data-v="dash" onclick="showV('dash',this)">📊 ダッシュボード</div>
+  <div class="tab" data-v="entry" onclick="showV('entry',this)">✏️ 入力</div>
+  <div class="tab" data-v="log" onclick="showV('log',this)">📋 明細</div>
+  <div class="tab" data-v="hist" onclick="showV('hist',this)">📈 年別実績</div>
+  <div class="tab" data-v="settings" onclick="showV('settings',this)">⚙️ 設定</div>
+</div>
+
+<div class="content">
+
+  <!-- DASHBOARD -->
+  <div class="view active" id="view-dash">
+    <div id="drow" class="drow"></div>
+    <div class="card">
+      <div class="ctitle">📦 プラットフォーム別売上</div>
+      <div class="plats">
+        <div class="plat u"><div class="pname">Uber</div><div class="pamt" id="d-u">¥0</div></div>
+        <div class="plat g"><div class="pname">GO</div><div class="pamt" id="d-g">¥0</div></div>
+        <div class="plat d"><div class="pname">DIDI</div><div class="pamt" id="d-d">¥0</div></div>
+      </div>
+    </div>
+    <div class="g2">
+      <div class="bm"><div class="bm-lbl">期間累計売上</div><div class="bm-val" id="d-s">¥0</div><div class="bm-sub" id="d-h">0時間稼働</div></div>
+      <div class="bm profit"><div class="bm-lbl">期間累計利益</div><div class="bm-val" id="d-p">¥0</div><div class="bm-sub" id="d-pr"></div></div>
+    </div>
+    <div class="g2">
+      <div class="bm hourly"><div class="bm-lbl">平均時給</div><div class="bm-val" id="d-hr">—</div><div class="bm-sub">利益 ÷ 稼働時間</div></div>
+      <div class="bm acc"><div class="bm-lbl">稼働日数</div><div class="bm-val" id="d-days">0<span class="u">日</span></div><div class="bm-sub" id="d-avg"></div></div>
+    </div>
+    <div class="mlcard">
+      <div class="mltop">
+        <div><div class="mltitle">🎯 最低ライン達成状況</div><div class="mlsub" id="ml-t"></div></div>
+        <div class="mlpct" id="ml-p">0%</div>
+      </div>
+      <div class="pbar"><div class="pfill" id="ml-b" style="width:0%"></div></div>
+      <div class="mldet"><span id="ml-l"></span><span id="ml-r"></span></div>
+    </div>
+  </div>
+
+  <!-- ENTRY -->
+  <div class="view" id="view-entry">
+    <div class="card">
+      <div class="ctitle">✏️ 日次データ入力</div>
+      <div class="fr t2">
+        <div class="fg"><label>日付（西暦）</label><input type="date" id="eDate"></div>
+        <div class="fg"><label>稼働時間</label><input type="number" id="eHrs" placeholder="0.0" step="0.5" min="0" max="24"></div>
+      </div>
+      <div class="fr t3">
+        <div class="fg"><label class="lu">Uber</label><input type="number" id="eU" class="fu" placeholder="0" step="10" min="0"></div>
+        <div class="fg"><label class="lg">GO</label><input type="number" id="eG" class="fg2" placeholder="0" step="10" min="0"></div>
+        <div class="fg"><label class="ld">DIDI</label><input type="number" id="eD" class="fd" placeholder="0" step="10" min="0"></div>
+      </div>
+      <div class="cprev">
+        <div><div class="cpl">本日売上</div><div class="cpv cs" id="cp-s">¥0</div></div>
+        <div><div class="cpl">本日利益（概算）</div><div class="cpv cp" id="cp-p">¥0</div></div>
+        <div><div class="cpl">本日時給（概算）</div><div class="cpv ch" id="cp-h">—</div></div>
+      </div>
+      <button class="btnp" onclick="saveEntry()">💾 保存する</button>
+    </div>
+    <div id="eWarn" style="display:none;background:#fef3c7;border:2px solid #f59e0b;border-radius:12px;padding:12px 16px;font-size:13px;color:#92400e;font-weight:600;">
+      ⚠️ この日付は表示中の期間外です。保存すると対象期間に記録されます。
+    </div>
+  </div>
+
+  <!-- LOG -->
+  <div class="view" id="view-log">
+    <div class="card">
+      <div class="ctitle">📋 期間明細</div>
+      <div class="lwrap">
+        <table class="lt" id="logTbl">
+          <thead><tr>
+            <th>日付</th><th>時間</th>
+            <th>Uber</th><th>GO</th><th>DIDI</th>
+            <th>売上</th><th>利益</th><th>時給</th><th></th>
+          </tr></thead>
+          <tbody id="logBody"></tbody>
+          <tfoot id="logFoot"></tfoot>
+        </table>
+      </div>
+      <div id="logEmpty" class="nodata" style="display:none"><div class="nodata-ico">📭</div><p>この期間のデータはまだありません</p></div>
+    </div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="view" id="view-hist"><div id="histContent"></div></div>
+
+  <!-- SETTINGS -->
+  <div class="view" id="view-settings">
+    <div class="card">
+      <div class="sg">
+        <div class="sgt">この期間の設定</div>
+        <div class="sr">
+          <div class="si"><div class="sl">最低ライン（利益目標）</div><div class="sd">この期間で達成したい最低利益額</div></div>
+          <div class="siw"><input type="number" class="sinp" id="set-min" step="1000" min="0"><span class="su">円</span></div>
+        </div>
+      </div>
+      <div class="sg">
+        <div class="sgt">計算設定（新規入力分）</div>
+        <div class="sr">
+          <div class="si"><div class="sl">手取り率</div><div class="sd">新規入力時の利益計算に使う割合（インポートデータは実績値を使用）</div></div>
+          <div class="siw"><input type="number" class="sinp" id="set-rat" step="0.1" min="1" max="100"><span class="su">%</span></div>
+        </div>
+      </div>
+      <button class="btnset" onclick="saveSettings()">✅ 設定を保存</button>
+    </div>
+    <div class="card" style="background:#f8fafc">
+      <div class="sgt" style="margin-bottom:10px">データ管理</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:14px">データはブラウザのローカルストレージに保存されます。</p>
+      <button class="btnd" onclick="exportData()">📤 データをエクスポート（JSON）</button>
+    </div>
+  </div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// IMPORTED DATA (from Numbers spreadsheets – all 10 periods)
+// ============================================================
+const IMPORTED_PERIODS = {
+  "2025-06": {
+    minTarget: 164000,
+    totals: {"hours": 102.5, "uber": 62934, "go": 254010, "didi": 193580, "sales": 510524, "profit": 292391},
+    entries: [{"id":"SD5_1","date":"2025-05-16","hours":9.5,"uber":9174,"go":33760,"didi":0,"profit":24589},{"id":"SD5_2","date":"2025-05-17","hours":5.0,"uber":4522,"go":27490,"didi":0,"profit":18334},{"id":"SD5_3","date":"2025-05-19","hours":4.5,"uber":5719,"go":15030,"didi":0,"profit":11884},{"id":"SD5_4","date":"2025-05-20","hours":4.0,"uber":3279,"go":11650,"didi":0,"profit":8550},{"id":"SD5_5","date":"2025-05-23","hours":8.5,"uber":17296,"go":12930,"didi":5410,"profit":20410},{"id":"SD5_6","date":"2025-05-24","hours":4.0,"uber":3052,"go":13350,"didi":7490,"profit":13684},{"id":"SD5_7","date":"2025-05-26","hours":3.5,"uber":0,"go":2700,"didi":14440,"profit":9817},{"id":"SD5_8","date":"2025-05-27","hours":4.0,"uber":0,"go":7290,"didi":9880,"profit":9834},{"id":"SD5_9","date":"2025-05-28","hours":4.0,"uber":3150,"go":9560,"didi":7830,"profit":11764},{"id":"SD5_10","date":"2025-05-29","hours":4.0,"uber":0,"go":23570,"didi":1490,"profit":14353},{"id":"SD5_11","date":"2025-05-30","hours":7.0,"uber":1467,"go":17630,"didi":10250,"profit":16808},{"id":"SD5_12","date":"2025-05-31","hours":4.5,"uber":0,"go":3300,"didi":32160,"profit":20309},{"id":"SD5_13","date":"2025-06-01","hours":3.5,"uber":0,"go":15460,"didi":4360,"profit":11351},{"id":"SD5_14","date":"2025-06-02","hours":4.0,"uber":0,"go":2090,"didi":21630,"profit":13585},{"id":"SD5_15","date":"2025-06-03","hours":2.0,"uber":0,"go":8770,"didi":7970,"profit":9587},{"id":"SD5_16","date":"2025-06-06","hours":8.0,"uber":0,"go":11440,"didi":20350,"profit":18207},{"id":"SD5_17","date":"2025-06-10","hours":4.0,"uber":2402,"go":14540,"didi":2950,"profit":11393},{"id":"SD5_18","date":"2025-06-11","hours":4.0,"uber":6432,"go":2020,"didi":13590,"profit":12624},{"id":"SD5_19","date":"2025-06-12","hours":4.0,"uber":945,"go":10720,"didi":6430,"profit":10364},{"id":"SD5_20","date":"2025-06-13","hours":8.5,"uber":5496,"go":10710,"didi":21020,"profit":21320},{"id":"SD5_21","date":"2025-06-14","hours":2.0,"uber":0,"go":0,"didi":6330,"profit":3625}]
+  },
+  "2025-07": {
+    minTarget: 136000,
+    totals: {"hours": 85.0, "uber": 39060, "go": 197850, "didi": 206210, "sales": 443120, "profit": 235659},
+    entries: [{"id":"SD6_1","date":"2025-06-20","hours":5.5,"uber":0,"go":9950,"didi":7800,"profit":9440},{"id":"SD6_2","date":"2025-06-21","hours":5.0,"uber":2477,"go":16260,"didi":14170,"profit":17501},{"id":"SD6_3","date":"2025-06-23","hours":4.0,"uber":0,"go":11960,"didi":4360,"profit":8679},{"id":"SD6_4","date":"2025-06-24","hours":4.0,"uber":0,"go":10930,"didi":3950,"profit":7913},{"id":"SD6_5","date":"2025-06-25","hours":4.5,"uber":3438,"go":6130,"didi":16750,"profit":13996},{"id":"SD6_6","date":"2025-06-26","hours":4.5,"uber":0,"go":7770,"didi":19280,"profit":14386},{"id":"SD6_7","date":"2025-06-27","hours":7.0,"uber":0,"go":12650,"didi":24930,"profit":19986},{"id":"SD6_8","date":"2025-06-28","hours":3.5,"uber":0,"go":20890,"didi":17300,"profit":20310},{"id":"SD6_9","date":"2025-06-30","hours":4.0,"uber":0,"go":7010,"didi":13070,"profit":10679},{"id":"SD6_10","date":"2025-07-01","hours":1.5,"uber":0,"go":7260,"didi":2830,"profit":5366},{"id":"SD6_11","date":"2025-07-02","hours":3.5,"uber":0,"go":3700,"didi":8520,"profit":6499},{"id":"SD6_12","date":"2025-07-03","hours":4.0,"uber":0,"go":9390,"didi":7880,"profit":9184},{"id":"SD6_13","date":"2025-07-04","hours":7.0,"uber":6188,"go":15680,"didi":19520,"profit":22011},{"id":"SD6_14","date":"2025-07-05","hours":2.0,"uber":0,"go":0,"didi":11100,"profit":5903},{"id":"SD6_15","date":"2025-07-08","hours":4.5,"uber":0,"go":9340,"didi":13530,"profit":12163},{"id":"SD6_16","date":"2025-07-09","hours":3.5,"uber":0,"go":12920,"didi":6140,"profit":10136},{"id":"SD6_17","date":"2025-07-10","hours":3.5,"uber":2030,"go":11920,"didi":0,"profit":7419},{"id":"SD6_18","date":"2025-07-11","hours":7.0,"uber":12350,"go":5390,"didi":8030,"profit":13705},{"id":"SD6_19","date":"2025-07-12","hours":2.5,"uber":0,"go":5930,"didi":6040,"profit":6366},{"id":"SD6_20","date":"2025-07-14","hours":4.0,"uber":12577,"go":12770,"didi":1010,"profit":14017}]
+  },
+  "2025-08": {
+    minTarget: 132000,
+    totals: {"hours": 82.5, "uber": 11616, "go": 197060, "didi": 205770, "sales": 414446, "profit": 220410},
+    entries: [{"id":"SD7_1","date":"2025-07-16","hours":3.5,"uber":0,"go":9780,"didi":7220,"profit":9041},{"id":"SD7_2","date":"2025-07-17","hours":4.0,"uber":0,"go":14120,"didi":4600,"profit":9956},{"id":"SD7_3","date":"2025-07-24","hours":8.0,"uber":7877,"go":26580,"didi":2990,"profit":19915},{"id":"SD7_4","date":"2025-07-25","hours":7.5,"uber":3739,"go":22610,"didi":10370,"profit":19528},{"id":"SD7_5","date":"2025-07-28","hours":4.0,"uber":0,"go":15960,"didi":6900,"profit":12157},{"id":"SD7_6","date":"2025-07-29","hours":8.0,"uber":0,"go":29280,"didi":14040,"profit":23038},{"id":"SD7_7","date":"2025-07-30","hours":3.5,"uber":0,"go":5080,"didi":7350,"profit":6610},{"id":"SD7_8","date":"2025-07-31","hours":3.5,"uber":0,"go":5480,"didi":8390,"profit":7376},{"id":"SD7_9","date":"2025-08-04","hours":3.5,"uber":0,"go":4960,"didi":16920,"profit":11636},{"id":"SD7_10","date":"2025-08-05","hours":3.0,"uber":0,"go":3470,"didi":9800,"profit":7057},{"id":"SD7_11","date":"2025-08-06","hours":8.0,"uber":0,"go":22890,"didi":6780,"profit":15779},{"id":"SD7_12","date":"2025-08-07","hours":3.5,"uber":0,"go":2860,"didi":13840,"profit":8881},{"id":"SD7_13","date":"2025-08-08","hours":4.5,"uber":0,"go":0,"didi":17480,"profit":9296},{"id":"SD7_14","date":"2025-08-09","hours":4.0,"uber":0,"go":14180,"didi":9080,"profit":12370},{"id":"SD7_15","date":"2025-08-10","hours":3.0,"uber":0,"go":1250,"didi":14410,"profit":8328},{"id":"SD7_16","date":"2025-08-12","hours":7.0,"uber":0,"go":4960,"didi":40920,"profit":24400},{"id":"SD7_17","date":"2025-08-15","hours":4.0,"uber":0,"go":13600,"didi":14680,"profit":15040}]
+  },
+  "2025-09": {
+    minTarget: 49600,
+    totals: {"hours": 31.0, "uber": 0, "go": 82550, "didi": 67030, "sales": 149580, "profit": 79549},
+    entries: [{"id":"SD8_1","date":"2025-08-19","hours":3.5,"uber":0,"go":6770,"didi":9160,"profit":8472},{"id":"SD8_2","date":"2025-08-20","hours":6.5,"uber":0,"go":26370,"didi":8110,"profit":18337},{"id":"SD8_3","date":"2025-08-21","hours":3.0,"uber":0,"go":9600,"didi":3230,"profit":6823},{"id":"SD8_4","date":"2025-08-22","hours":2.5,"uber":0,"go":7610,"didi":6740,"profit":7632},{"id":"SD8_5","date":"2025-08-25","hours":2.0,"uber":0,"go":3950,"didi":4690,"profit":4595},{"id":"SD8_6","date":"2025-08-27","hours":5.0,"uber":0,"go":6160,"didi":14740,"profit":11115},{"id":"SD8_7","date":"2025-08-31","hours":3.0,"uber":0,"go":2980,"didi":9490,"profit":6632},{"id":"SD8_8","date":"2025-09-01","hours":2.5,"uber":0,"go":2220,"didi":10870,"profit":6962},{"id":"SD8_9","date":"2025-09-11","hours":3.0,"uber":0,"go":16890,"didi":0,"profit":8982}]
+  },
+  "2025-10": {
+    minTarget: 16000,
+    totals: {"hours": 10.0, "uber": 0, "go": 18210, "didi": 22430, "sales": 40640, "profit": 21613},
+    entries: [{"id":"SD9_1","date":"2025-09-27","hours":3.0,"uber":0,"go":1850,"didi":11430,"profit":7063},{"id":"SD9_2","date":"2025-10-01","hours":3.0,"uber":0,"go":8860,"didi":0,"profit":4712},{"id":"SD9_3","date":"2025-10-03","hours":4.0,"uber":0,"go":7500,"didi":11000,"profit":9839}]
+  },
+  "2026-02": {
+    minTarget: 6400,
+    totals: {"hours": 4.0, "uber": 0, "go": 6290, "didi": 23320, "sales": 29610, "profit": 15747},
+    entries: [{"id":"SD26.1_1","date":"2026-02-03","hours":4.0,"uber":0,"go":6290,"didi":23320,"profit":15747}]
+  },
+  "2026-03": {
+    minTarget: 24000,
+    totals: {"hours": 15.0, "uber": 0, "go": 45400, "didi": 26210, "sales": 71610, "profit": 38084},
+    entries: [{"id":"SD26.2_1","date":"2026-03-04","hours":4.0,"uber":0,"go":12440,"didi":3430,"profit":8440},{"id":"SD26.2_2","date":"2026-03-05","hours":3.0,"uber":0,"go":11190,"didi":6900,"profit":9621},{"id":"SD26.2_3","date":"2026-03-10","hours":4.0,"uber":0,"go":10690,"didi":10350,"profit":11189},{"id":"SD26.2_4","date":"2026-03-12","hours":4.0,"uber":0,"go":11080,"didi":5530,"profit":8834}]
+  },
+  "2026-04": {
+    minTarget: 44800,
+    totals: {"hours": 28.0, "uber": 0, "go": 52830, "didi": 87930, "sales": 140760, "profit": 74859},
+    entries: [{"id":"SD26.3_1","date":"2026-03-24","hours":4.0,"uber":0,"go":7850,"didi":7990,"profit":8424},{"id":"SD26.3_2","date":"2026-04-02","hours":4.0,"uber":0,"go":7850,"didi":14540,"profit":11907},{"id":"SD26.3_3","date":"2026-04-03","hours":4.0,"uber":0,"go":3300,"didi":11480,"profit":7860},{"id":"SD26.3_4","date":"2026-04-07","hours":3.5,"uber":0,"go":2940,"didi":8780,"profit":6233},{"id":"SD26.3_5","date":"2026-04-08","hours":3.0,"uber":0,"go":3590,"didi":7510,"profit":5903},{"id":"SD26.3_6","date":"2026-04-10","hours":2.5,"uber":0,"go":12030,"didi":6250,"profit":9722},{"id":"SD26.3_7","date":"2026-04-14","hours":3.0,"uber":0,"go":6890,"didi":8030,"profit":7935},{"id":"SD26.3_8","date":"2026-04-15","hours":4.0,"uber":0,"go":8380,"didi":23350,"profit":16875}]
+  },
+  "2026-05": {
+    minTarget: 84000,
+    totals: {"hours": 52.5, "uber": 10180, "go": 166890, "didi": 117090, "sales": 294160, "profit": 156440},
+    entries: [{"id":"SD26.4_1","date":"2026-04-16","hours":3.5,"uber":0,"go":7570,"didi":8570,"profit":8584},{"id":"SD26.4_2","date":"2026-04-17","hours":3.0,"uber":0,"go":8020,"didi":3310,"profit":6026},{"id":"SD26.4_3","date":"2026-04-18","hours":2.0,"uber":0,"go":26060,"didi":0,"profit":13859},{"id":"SD26.4_4","date":"2026-04-19","hours":4.5,"uber":1877,"go":6410,"didi":21220,"profit":15692},{"id":"SD26.4_5","date":"2026-04-22","hours":3.0,"uber":0,"go":7910,"didi":16300,"profit":12875},{"id":"SD26.4_6","date":"2026-04-23","hours":3.0,"uber":0,"go":4750,"didi":15690,"profit":10870},{"id":"SD26.4_7","date":"2026-04-24","hours":3.0,"uber":2920,"go":4870,"didi":6740,"profit":7727},{"id":"SD26.4_8","date":"2026-04-27","hours":3.5,"uber":0,"go":10840,"didi":13030,"profit":12694},{"id":"SD26.4_9","date":"2026-04-28","hours":3.0,"uber":0,"go":4310,"didi":8050,"profit":6573},{"id":"SD26.4_10","date":"2026-04-29","hours":1.0,"uber":0,"go":3280,"didi":0,"profit":1744},{"id":"SD26.4_11","date":"2026-04-30","hours":3.0,"uber":0,"go":2700,"didi":400,"profit":1649},{"id":"SD26.4_12","date":"2026-05-08","hours":6.5,"uber":0,"go":32970,"didi":1110,"profit":18124},{"id":"SD26.4_13","date":"2026-05-09","hours":2.0,"uber":5383,"go":10800,"didi":0,"profit":8606},{"id":"SD26.4_14","date":"2026-05-12","hours":3.5,"uber":0,"go":11340,"didi":6580,"profit":9530},{"id":"SD26.4_15","date":"2026-05-13","hours":2.0,"uber":0,"go":6690,"didi":0,"profit":3558},{"id":"SD26.4_16","date":"2026-05-14","hours":2.0,"uber":0,"go":6570,"didi":0,"profit":3494},{"id":"SD26.4_17","date":"2026-05-15","hours":4.0,"uber":0,"go":11800,"didi":16090,"profit":14832}]
+  },
+  "2026-06": {
+    minTarget: 30400,
+    totals: null,
+    entries: [{"id":"SD26.5_1","date":"2026-05-16","hours":3.0,"uber":0,"go":4420,"didi":21720,"profit":13902},{"id":"SD26.5_2","date":"2026-05-18","hours":3.5,"uber":0,"go":12280,"didi":9550,"profit":11610},{"id":"SD26.5_3","date":"2026-05-20","hours":3.0,"uber":0,"go":1950,"didi":8540,"profit":5579},{"id":"SD26.5_4","date":"2026-05-21","hours":3.5,"uber":0,"go":7790,"didi":10980,"profit":9982},{"id":"SD26.5_5","date":"2026-05-22","hours":6.0,"uber":0,"go":10840,"didi":25730,"profit":19449}]
+  }
+};
+
+const ALL_KEYS = ["2025-06","2025-07","2025-08","2025-09","2025-10","2026-02","2026-03","2026-04","2026-05","2026-06"];
+
+// ============================================================
+// STATE
+// ============================================================
+let ST = { settings:{ profitRatio:53.2, defaultMin:30000 }, periods:{}, migrated:false };
+let CK = ''; // current period key
+
+// ============================================================
+// HELPERS
+// ============================================================
+function keyForDate(ds) {
+  const d = parseD(ds), day = d.getDate();
+  if (day >= 16) {
+    const ey = d.getMonth()===11 ? d.getFullYear()+1 : d.getFullYear();
+    const em = d.getMonth()===11 ? 1 : d.getMonth()+2;
+    return fk(ey,em);
+  }
+  return fk(d.getFullYear(), d.getMonth()+1);
+}
+function fk(y,m){ return `${y}-${String(m).padStart(2,'0')}`; }
+function parseD(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+function periodRange(key){
+  const [y,m]=key.split('-').map(Number);
+  const end=new Date(y,m-1,15);
+  const sy=m===1?y-1:y, sm=m===1?12:m-1;
+  return {start:new Date(sy,sm-1,16), end};
+}
+function periodLabel(key){
+  const {start,end}=periodRange(key);
+  const f=d=>`${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
+  return `${f(start)}〜${f(end)}`;
+}
+function shortLabel(key){
+  const {start,end}=periodRange(key);
+  return `${start.getFullYear()}/${start.getMonth()+1}/${start.getDate()}〜${end.getMonth()+1}/${end.getDate()}`;
+}
+function todayStr(){
+  const n=new Date();
+  return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;
+}
+function fmtDateFull(s){
+  const d=parseD(s), dow=['日','月','火','水','木','金','土'];
+  return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+}
+function fmtDow(s){ const d=parseD(s), dow=['日','月','火','水','木','金','土']; return dow[d.getDay()]; }
+function daysLeft(key){
+  const t=new Date(); t.setHours(0,0,0,0);
+  const {end}=periodRange(key); end.setHours(0,0,0,0);
+  return Math.max(0,Math.ceil((end-t)/86400000));
+}
+function advKey(key,d){
+  const [y,m]=key.split('-').map(Number);
+  let nm=m+d, ny=y;
+  while(nm>12){nm-=12;ny++;} while(nm<1){nm+=12;ny--;}
+  return fk(ny,nm);
+}
+function fmt(n){ if(!n&&n!==0)return'—'; return '¥'+Math.round(n).toLocaleString('ja-JP'); }
+
+// ============================================================
+// DATA
+// ============================================================
+function getPeriod(key){
+  // Merge IMPORTED base with user state overrides
+  const imp = IMPORTED_PERIODS[key];
+  const usr = ST.periods[key] || {};
+  if (imp) {
+    const entries = usr.entries || imp.entries.map(e=>({...e}));
+    return { minTarget: usr.minTarget!==undefined ? usr.minTarget : imp.minTarget, entries, isImported: true };
+  }
+  if (!ST.periods[key]) ST.periods[key] = { minTarget: ST.settings.defaultMin||30000, entries:[] };
+  return { ...ST.periods[key], isImported: false };
+}
+
+function calcEntry(e){
+  const sales=(e.uber||0)+(e.go||0)+(e.didi||0);
+  const profit = e.profit !== undefined ? e.profit : Math.round(sales*(ST.settings.profitRatio/100));
+  const hourly = e.hours>0 ? Math.round(profit/e.hours) : 0;
+  return { sales, profit, hourly };
+}
+
+function calcTotals(key){
+  const pd = getPeriod(key);
+  const entries = pd.entries || [];
+  let tu=0,tg=0,td=0,ts=0,tp=0,th=0;
+  for(const e of entries){
+    const c=calcEntry(e);
+    tu+=e.uber||0; tg+=e.go||0; td+=e.didi||0;
+    ts+=c.sales; tp+=c.profit; th+=e.hours||0;
+  }
+  const avgH = th>0 ? Math.round(tp/th) : 0;
+  return { tu,tg,td,ts,tp,th, avgH, count:entries.length };
+}
+
+// ============================================================
+// STORAGE
+// ============================================================
+function loadST(){ try{ const s=localStorage.getItem('rs_v3'); if(s) ST=JSON.parse(s); }catch(e){} }
+function saveST(){ localStorage.setItem('rs_v3',JSON.stringify(ST)); }
+
+function migrate(){
+  if(ST.migrated) return;
+  // For all periods: if not in user state yet, load from IMPORTED
+  for(const key of ALL_KEYS){
+    const imp = IMPORTED_PERIODS[key];
+    if(!imp) continue;
+    if(!ST.periods[key]){
+      ST.periods[key] = {
+        minTarget: imp.minTarget,
+        entries: imp.entries.map(e=>({...e}))
+      };
+    } else if(key==='2026-06'){
+      // Merge: update imported entries, keep user-added ones
+      const existing = ST.periods[key].entries || [];
+      const importedIds = new Set(imp.entries.map(e=>e.id));
+      const userOnly = existing.filter(e=>!importedIds.has(e.id));
+      ST.periods[key].entries = [...imp.entries.map(e=>({...e})), ...userOnly];
+    }
+  }
+  ST.migrated = true;
+  saveST();
+}
+
+// ============================================================
+// UI
+// ============================================================
+function showToast(m){ const el=document.getElementById('toast'); el.textContent=m; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2500); }
+
+function showV(name,tab){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  if(tab) tab.classList.add('active');
+  if(name==='dash') renderDash();
+  if(name==='log') renderLog();
+  if(name==='hist') renderHist();
+  if(name==='settings') renderSettings();
+  if(name==='entry') initEntry();
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+function renderDash(){
+  const t=calcTotals(CK);
+  const pd=getPeriod(CK);
+  const minT=pd.minTarget||0, dl=daysLeft(CK);
+
+  document.getElementById('d-u').textContent=fmt(t.tu);
+  document.getElementById('d-g').textContent=fmt(t.tg);
+  document.getElementById('d-d').textContent=fmt(t.td);
+  document.getElementById('d-s').textContent=fmt(t.ts);
+  document.getElementById('d-h').textContent=`${t.th}時間稼働`;
+  document.getElementById('d-p').textContent=fmt(t.tp);
+  document.getElementById('d-pr').textContent=pd.isImported?'実績値（スプレッドシートより）':`手取り${ST.settings.profitRatio}%`;
+  document.getElementById('d-hr').textContent=t.avgH>0?fmt(t.avgH):'—';
+  document.getElementById('d-days').innerHTML=`${t.count}<span class="u">日</span>`;
+  document.getElementById('d-avg').textContent=t.count>0?`1日平均 ${fmt(Math.round(t.tp/t.count))}`:'';
+
+  const rem=minT-t.tp, ach=rem<=0, npd=!ach&&dl>0?Math.ceil(rem/dl):0;
+  document.getElementById('drow').innerHTML=`
+    <div class="dchip"><div class="dnum">${dl}</div><div class="dlbl">残り日数</div></div>
+    <div class="nchip ${ach?'ok':''}">
+      <div class="nlbl">${ach?'🎉 最低ライン達成！':'達成に必要な1日あたり利益'}</div>
+      <div class="nval">${ach?'クリア！':fmt(npd)+'/日'}</div>
+    </div>`;
+
+  const pct=minT>0?Math.min(Math.round(t.tp/minT*100),100):0;
+  document.getElementById('ml-p').textContent=pct+'%';
+  const bar=document.getElementById('ml-b');
+  bar.style.width=pct+'%'; bar.className='pfill'+(pct>=100?' done':'');
+  document.getElementById('ml-t').textContent=`目標: ${fmt(minT)}`;
+  document.getElementById('ml-l').innerHTML=`達成: <strong>${fmt(t.tp)}</strong>`;
+  document.getElementById('ml-r').innerHTML=ach
+    ?`<span class="mlrem done">✓ クリア (+${fmt(Math.abs(rem))})</span>`
+    :`残り: <span class="mlrem">${fmt(rem)}</span>`;
+}
+
+// ============================================================
+// LOG
+// ============================================================
+function renderLog(){
+  const pd=getPeriod(CK);
+  const entries=[...(pd.entries||[])].sort((a,b)=>a.date.localeCompare(b.date));
+  const tbl=document.getElementById('logTbl');
+  const body=document.getElementById('logBody');
+  const foot=document.getElementById('logFoot');
+  const empty=document.getElementById('logEmpty');
+  const isImp=pd.isImported;
+
+  if(entries.length===0){ tbl.style.display='none'; empty.style.display='block'; return; }
+  tbl.style.display='table'; empty.style.display='none';
+
+  body.innerHTML=entries.map(e=>{
+    const c=calcEntry(e);
+    const imp=e.id&&(e.id.startsWith('SD'))||e.profit!==undefined;
+    const canDel=!imp;
+    return `<tr>
+      <td class="dc">${fmtDateFull(e.date)}<span class="dow">(${fmtDow(e.date)})</span>${imp?'<span class="impbadge">履歴</span>':''}</td>
+      <td>${e.hours}h</td>
+      <td class="${e.uber>0?'uv':''}">${e.uber>0?fmt(e.uber):'—'}</td>
+      <td class="${e.go>0?'gv':''}">${e.go>0?fmt(e.go):'—'}</td>
+      <td class="${e.didi>0?'dv':''}">${e.didi>0?fmt(e.didi):'—'}</td>
+      <td class="sv">${fmt(c.sales)}</td>
+      <td class="pv">${fmt(c.profit)}</td>
+      <td class="hv">${c.hourly>0?fmt(c.hourly):'—'}</td>
+      <td>${canDel?`<button class="delbtn" onclick="delEntry('${e.id}')">✕</button>`:''}</td>
+    </tr>`;
+  }).join('');
+
+  const t=calcTotals(CK);
+  foot.innerHTML=`<tr class="tr-tot">
+    <td>合計</td><td>${t.th}h</td>
+    <td class="uv">${fmt(t.tu)}</td><td class="gv">${fmt(t.tg)}</td><td class="dv">${fmt(t.td)}</td>
+    <td class="sv">${fmt(t.ts)}</td><td class="pv">${fmt(t.tp)}</td>
+    <td class="hv">${t.avgH>0?fmt(t.avgH):'—'}</td><td></td>
+  </tr>`;
+}
+
+// ============================================================
+// HISTORY
+// ============================================================
+function renderHist(){
+  const todayKey=keyForDate(todayStr());
+  const byYear={};
+  for(const key of ALL_KEYS){
+    const [y]=key.split('-').map(Number);
+    const t=calcTotals(key), pd=getPeriod(key);
+    if(!byYear[y]) byYear[y]={periods:[],th:0,ts:0,tp:0};
+    byYear[y].periods.push({key,t,pd,cur:key===todayKey});
+    byYear[y].th+=t.th; byYear[y].ts+=t.ts; byYear[y].tp+=t.tp;
+  }
+
+  let html='';
+  for(const [yr,data] of Object.entries(byYear).sort((a,b)=>a[0]-b[0])){
+    const avgH=data.th>0?Math.round(data.tp/data.th):0;
+    html+=`<div class="ysec">
+      <div class="yhdr"><div class="ytitle">${yr}年</div><div class="ytag">${data.periods.length}期間</div></div>
+      <div class="ysum">
+        <div class="yscard"><div class="ysl">稼働時間</div><div class="ysv a">${data.th}h</div></div>
+        <div class="yscard"><div class="ysl">累計売上</div><div class="ysv">${fmt(data.ts)}</div></div>
+        <div class="yscard"><div class="ysl">累計利益</div><div class="ysv p">${fmt(data.tp)}</div></div>
+        <div class="yscard"><div class="ysl">平均時給</div><div class="ysv h">${fmt(avgH)}</div></div>
+      </div>
+      <div class="card" style="padding:14px">
+        <div class="hwrap"><table class="ht">
+          <thead><tr><th>期間</th><th>時間</th><th>Uber</th><th>GO</th><th>DIDI</th><th>売上</th><th>利益</th><th>時給</th><th>最低ライン</th></tr></thead>
+          <tbody>${data.periods.map(({key,t,pd,cur})=>{
+            const ach=t.tp>=(pd.minTarget||0);
+            const pct=pd.minTarget>0?Math.round(t.tp/pd.minTarget*100):0;
+            return `<tr class="${cur?'cur':''}">
+              <td>${shortLabel(key)}${cur?' 🔄':''}</td>
+              <td>${t.th}h</td>
+              <td class="${t.tu>0?'uv':''}">${t.tu>0?fmt(t.tu):'—'}</td>
+              <td class="gv">${fmt(t.tg)}</td>
+              <td class="dv">${fmt(t.td)}</td>
+              <td class="sv">${fmt(t.ts)}</td>
+              <td class="pv">${fmt(t.tp)}</td>
+              <td class="hv">${fmt(t.avgH)}</td>
+              <td class="${ach?'ach':'noch'}">${ach?'✓':''} ${pct}%</td>
+            </tr>`;
+          }).join('')}</tbody>
+          <tfoot><tr class="tr-tot">
+            <td>${yr}年合計</td><td>${data.th}h</td>
+            <td colspan="3" style="text-align:center;color:var(--muted);font-size:10px"></td>
+            <td class="sv">${fmt(data.ts)}</td><td class="pv">${fmt(data.tp)}</td>
+            <td class="hv">${fmt(avgH)}</td><td></td>
+          </tr></tfoot>
+        </table></div>
+      </div>
+    </div>`;
+  }
+  document.getElementById('histContent').innerHTML=html;
+}
+
+// ============================================================
+// ENTRY FORM
+// ============================================================
+function initEntry(){
+  document.getElementById('eDate').value=todayStr();
+  ['eHrs','eU','eG','eD'].forEach(id=>document.getElementById(id).value='');
+  updPrev(); chkWarn();
+}
+function updPrev(){
+  const u=parseFloat(document.getElementById('eU').value)||0;
+  const g=parseFloat(document.getElementById('eG').value)||0;
+  const d=parseFloat(document.getElementById('eD').value)||0;
+  const h=parseFloat(document.getElementById('eHrs').value)||0;
+  const rat=ST.settings.profitRatio/100;
+  const s=u+g+d, p=Math.round(s*rat), hr=h>0?Math.round(p/h):0;
+  document.getElementById('cp-s').textContent=fmt(s);
+  document.getElementById('cp-p').textContent=fmt(p);
+  document.getElementById('cp-h').textContent=hr>0?fmt(hr):'—';
+}
+function chkWarn(){
+  const ds=document.getElementById('eDate').value;
+  if(!ds) return;
+  document.getElementById('eWarn').style.display=keyForDate(ds)!==CK?'block':'none';
+}
+function saveEntry(){
+  const date=document.getElementById('eDate').value;
+  const hours=parseFloat(document.getElementById('eHrs').value);
+  const uber=parseFloat(document.getElementById('eU').value)||0;
+  const go=parseFloat(document.getElementById('eG').value)||0;
+  const didi=parseFloat(document.getElementById('eD').value)||0;
+  if(!date){ showToast('⚠️ 日付を入力してください'); return; }
+  if(isNaN(hours)||hours<=0){ showToast('⚠️ 稼働時間を入力してください'); return; }
+  if(uber+go+didi===0){ showToast('⚠️ 売上を入力してください'); return; }
+
+  const ek=keyForDate(date);
+  if(!ST.periods[ek]){
+    const imp=IMPORTED_PERIODS[ek];
+    ST.periods[ek]={ minTarget:imp?imp.minTarget:(ST.settings.defaultMin||30000), entries:imp?imp.entries.map(e=>({...e})):[] };
+  }
+  const entries=ST.periods[ek].entries;
+  const idx=entries.findIndex(e=>e.date===date);
+  // Don't allow overwriting imported entries
+  if(idx>=0 && entries[idx].id && entries[idx].id.startsWith('SD')){
+    showToast('⚠️ この日はインポートデータがあります。削除してから再入力してください'); return;
+  }
+  const entry={ id:idx>=0?entries[idx].id:Date.now().toString(), date, hours, uber, go, didi };
+  if(idx>=0){ entries[idx]=entry; showToast(`✅ ${fmtDateFull(date)}を更新しました`); }
+  else { entries.push(entry); showToast(`✅ ${fmtDateFull(date)}を保存しました`); }
+  saveST();
+  if(ek!==CK){ CK=ek; updHeader(); }
+  initEntry();
+}
+function delEntry(id){
+  if(!confirm('このデータを削除しますか？')) return;
+  const p=ST.periods[CK];
+  if(p) p.entries=p.entries.filter(e=>e.id!==id);
+  saveST(); renderLog(); showToast('🗑️ 削除しました');
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
+function renderSettings(){
+  const pd=getPeriod(CK);
+  document.getElementById('set-min').value=pd.minTarget||30000;
+  document.getElementById('set-rat').value=ST.settings.profitRatio||53.2;
+}
+function saveSettings(){
+  const m=parseFloat(document.getElementById('set-min').value)||30000;
+  const r=parseFloat(document.getElementById('set-rat').value)||53.2;
+  if(!ST.periods[CK]) ST.periods[CK]={ entries:[] };
+  ST.periods[CK].minTarget=m;
+  ST.settings.profitRatio=r;
+  saveST(); showToast('⚙️ 設定を保存しました'); renderDash();
+}
+
+// ============================================================
+// PERIOD NAV
+// ============================================================
+function chgPeriod(d){
+  CK=advKey(CK,d); updHeader();
+  const av=document.querySelector('.tab.active');
+  const vn=av?av.dataset.v:'dash';
+  if(vn==='dash') renderDash();
+  if(vn==='log') renderLog();
+  if(vn==='settings') renderSettings();
+}
+function updHeader(){
+  document.getElementById('pLabel').textContent=periodLabel(CK);
+  const tk=keyForDate(todayStr());
+  const badge=document.getElementById('hBadge');
+  if(CK===tk){ badge.textContent='今期'; badge.className='badge badge-ok'; }
+  else{ const [,m]=CK.split('-'); badge.textContent=m+'月期'; badge.className='badge badge-warn'; }
+}
+
+// ============================================================
+// EXPORT
+// ============================================================
+function exportData(){
+  const blob=new Blob([JSON.stringify(ST,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=`rideshare_${todayStr()}.json`; a.click();
+  URL.revokeObjectURL(url); showToast('📤 エクスポートしました');
+}
+
+// ============================================================
+// EVENT LISTENERS
+// ============================================================
+['eU','eG','eD','eHrs'].forEach(id=>document.getElementById(id).addEventListener('input',updPrev));
+document.getElementById('eDate').addEventListener('change',()=>{ chkWarn(); updPrev(); });
+
+// ============================================================
+// INIT
+// ============================================================
+function init(){
+  loadST(); migrate();
+  CK=keyForDate(todayStr());
+  updHeader(); renderDash(); initEntry();
+}
+init();
+</script>
+</body>
+</html>
